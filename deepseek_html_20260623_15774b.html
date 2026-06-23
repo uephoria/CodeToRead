@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>三通道计时器 · 巨幕加大版</title>
+    <style>
+        /* 全局重置 ———— 适配 1920x480 */
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            width: 1920px;
+            height: 480px;
+            overflow: hidden;
+            background: linear-gradient(145deg, #0b1120 0%, #1a2639 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+            margin: 0;
+        }
+        /* 主卡片：填充 1920x480，三栏布局 */
+        .card {
+            width: 100%;
+            max-width: 1904px;
+            height: 100%;
+            max-height: 464px;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 48px;
+            padding: 12px 16px 12px 16px;
+            box-shadow: 0 30px 50px rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: row;
+            gap: 12px;
+            justify-content: space-between;
+            align-items: stretch;
+        }
+
+        /* 每个通道卡片 */
+        .channel {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 40px;
+            padding: 12px 12px 10px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.2s;
+            min-width: 0;
+        }
+        .channel:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        /* 通道头部：编号 + 模式切换 + 时间设置 */
+        .ch-header {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: center;
+            gap: 6px 10px;
+            flex-shrink: 0;
+            margin-bottom: 4px;
+        }
+        .ch-label {
+            color: #b6caf0;
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 0 18px;
+            border-radius: 30px;
+            white-space: nowrap;
+        }
+        .ch-mode-toggle {
+            display: flex;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 40px;
+            padding: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            flex-shrink: 0;
+        }
+        .ch-mode-btn {
+            padding: 8px 22px;
+            border: none;
+            background: transparent;
+            color: #9bb1d6;
+            font-size: 1.4rem;
+            font-weight: 600;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .ch-mode-btn.active {
+            background: #4e7cff;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(78, 124, 255, 0.25);
+        }
+        .ch-mode-btn:first-child.active {
+            background: #2e9aff;
+        }
+        .ch-mode-btn:last-child.active {
+            background: #ff7b4a;
+        }
+        .ch-mode-btn:active {
+            transform: scale(0.94);
+        }
+
+        /* 倒计时设置区域 ———— 按钮大一倍 */
+        .ch-set-area {
+            display: flex;
+            align-items: center;
+            gap: 6px 12px;
+            background: rgba(0, 0, 0, 0.15);
+            padding: 4px 16px 4px 16px;
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        .ch-set-label {
+            color: #8da2ca;
+            font-size: 1.4rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .ch-set-input {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid #3d5068;
+            color: #eef5ff;
+            padding: 8px 14px;
+            border-radius: 30px;
+            font-size: 1.6rem;
+            width: 90px;
+            text-align: center;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+        .ch-set-input:focus {
+            outline: 2px solid #4e7cff;
+            border-color: transparent;
+        }
+        .ch-set-input[type="number"]::-webkit-inner-spin-button {
+            opacity: 0.4;
+        }
+        /* 加大「应用」按钮 (比之前大一倍) */
+        .ch-set-btn {
+            background: #4e7cff;
+            border: none;
+            color: white;
+            padding: 12px 40px;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 1.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 14px rgba(78, 124, 255, 0.25);
+            white-space: nowrap;
+        }
+        .ch-set-btn:active {
+            transform: scale(0.94);
+        }
+        .ch-set-btn:hover {
+            background: #5f8aff;
+        }
+
+        /* 时间显示 ———— 超大数字 */
+        .ch-display-wrap {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 36px;
+            padding: 4px 10px;
+            margin: 2px 0 6px 0;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.3);
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+            min-height: 90px;
+        }
+        .ch-display-wrap:active {
+            background: rgba(255, 255, 255, 0.06);
+            transform: scale(0.995);
+        }
+        .ch-time-display {
+            font-size: 5.8rem;
+            font-weight: 800;
+            text-align: center;
+            letter-spacing: 8px;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.1;
+            pointer-events: none;
+            transition: color 0.2s;
+            color: #f0f7ff;
+            text-shadow: 0 0 30px rgba(78, 124, 255, 0.15);
+        }
+        .ch-time-display.running {
+            color: #6fcf97;
+            text-shadow: 0 0 50px rgba(111, 207, 151, 0.35);
+        }
+        .ch-time-display.paused {
+            color: #f2c94a;
+            text-shadow: 0 0 50px rgba(242, 201, 74, 0.25);
+        }
+        .ch-time-display.danger {
+            color: #ff5e6b;
+            text-shadow: 0 0 60px rgba(255, 70, 80, 0.55);
+            animation: pulse 0.8s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.02); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* 通道底部控制按钮 ———— 三个按钮全部加大一倍 */
+        .ch-controls {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 12px;
+            flex-shrink: 0;
+            justify-content: center;
+        }
+        .ch-ctrl-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #d6e3ff;
+            padding: 20px 40px;
+            border-radius: 50px;
+            font-size: 2.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+            flex: 1;
+            text-align: center;
+            white-space: nowrap;
+            min-width: 80px;
+            letter-spacing: 0.5px;
+        }
+        .ch-ctrl-btn:active {
+            transform: scale(0.94);
+        }
+        .ch-ctrl-btn.primary {
+            background: #2e9aff;
+            border-color: #4eacff;
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(46, 154, 255, 0.35);
+        }
+        .ch-ctrl-btn.primary:hover {
+            background: #3fa8ff;
+        }
+        .ch-ctrl-btn.secondary {
+            background: #3d4b66;
+            border-color: #5b6f8e;
+        }
+        .ch-ctrl-btn.secondary:hover {
+            background: #4f6080;
+        }
+        .ch-ctrl-btn.reset-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: #3d5068;
+        }
+        .ch-ctrl-btn.reset-btn:hover {
+            background: #334155;
+        }
+        .ch-ctrl-btn:disabled {
+            opacity: 0.35;
+            pointer-events: none;
+        }
+
+        /* 状态小标签 */
+        .ch-status {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #8da2ca;
+            margin-top: 3px;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 响应式微调，确保不溢出 */
+        @media (max-width: 1920px) {
+            body { width: 100vw; height: 100vh; }
+        }
+        @media (max-height: 480px) {
+            .card { padding: 8px 12px; gap: 8px; }
+            .channel { padding: 8px 8px; }
+            .ch-label { font-size: 1.4rem; padding: 0 12px; }
+            .ch-mode-btn { font-size: 1.1rem; padding: 6px 16px; }
+            .ch-set-input { width: 72px; font-size: 1.3rem; padding: 6px 10px; }
+            .ch-set-btn { font-size: 1.4rem; padding: 8px 28px; }
+            .ch-time-display { font-size: 4.4rem; letter-spacing: 6px; }
+            .ch-ctrl-btn { font-size: 1.6rem; padding: 14px 24px; }
+            .ch-status { font-size: 1.0rem; }
+        }
+        @media (max-height: 430px) {
+            .ch-time-display { font-size: 3.8rem; letter-spacing: 4px; }
+            .ch-ctrl-btn { font-size: 1.3rem; padding: 10px 18px; }
+            .ch-label { font-size: 1.2rem; }
+            .ch-mode-btn { font-size: 0.95rem; padding: 5px 14px; }
+            .ch-set-input { width: 60px; font-size: 1.1rem; padding: 4px 8px; }
+            .ch-set-btn { font-size: 1.2rem; padding: 6px 20px; }
+        }
+        @media (max-height: 380px) {
+            .ch-time-display { font-size: 3.0rem; letter-spacing: 3px; }
+            .ch-ctrl-btn { font-size: 1.0rem; padding: 8px 14px; }
+            .ch-status { font-size: 0.8rem; }
+            .ch-header { gap: 4px 6px; }
+            .ch-set-input { width: 50px; font-size: 0.9rem; padding: 3px 6px; }
+            .ch-set-btn { font-size: 1.0rem; padding: 4px 16px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="card" id="app">
+        <!-- 通道1：默认倒计时 -->
+        <div class="channel" data-channel="0">
+            <div class="ch-header">
+                <span class="ch-label">#1</span>
+                <div class="ch-mode-toggle">
+                    <button class="ch-mode-btn" data-mode="stopwatch">计时</button>
+                    <button class="ch-mode-btn active" data-mode="countdown">倒计</button>
+                </div>
+                <div class="ch-set-area">
+                    <span class="ch-set-label">⏲️</span>
+                    <input type="number" class="ch-set-input" value="60" min="1" max="36000">
+                    <button class="ch-set-btn">应用</button>
+                </div>
+            </div>
+            <div class="ch-display-wrap">
+                <div class="ch-time-display paused">00:01:00</div>
+            </div>
+            <div class="ch-controls">
+                <button class="ch-ctrl-btn primary">▶ 开始</button>
+                <button class="ch-ctrl-btn secondary">⏹ 停止</button>
+                <button class="ch-ctrl-btn reset-btn">↺ 重置</button>
+            </div>
+            <div class="ch-status">● 等待开始</div>
+        </div>
+
+        <!-- 通道2：默认倒计时 -->
+        <div class="channel" data-channel="1">
+            <div class="ch-header">
+                <span class="ch-label">#2</span>
+                <div class="ch-mode-toggle">
+                    <button class="ch-mode-btn" data-mode="stopwatch">计时</button>
+                    <button class="ch-mode-btn active" data-mode="countdown">倒计</button>
+                </div>
+                <div class="ch-set-area">
+                    <span class="ch-set-label">⏲️</span>
+                    <input type="number" class="ch-set-input" value="180" min="1" max="36000">
+                    <button class="ch-set-btn">应用</button>
+                </div>
+            </div>
+            <div class="ch-display-wrap">
+                <div class="ch-time-display paused">00:03:00</div>
+            </div>
+            <div class="ch-controls">
+                <button class="ch-ctrl-btn primary">▶ 开始</button>
+                <button class="ch-ctrl-btn secondary">⏹ 停止</button>
+                <button class="ch-ctrl-btn reset-btn">↺ 重置</button>
+            </div>
+            <div class="ch-status">● 等待开始</div>
+        </div>
+
+        <!-- 通道3：默认计时 -->
+        <div class="channel" data-channel="2">
+            <div class="ch-header">
+                <span class="ch-label">#3</span>
+                <div class="ch-mode-toggle">
+                    <button class="ch-mode-btn active" data-mode="stopwatch">计时</button>
+                    <button class="ch-mode-btn" data-mode="countdown">倒计</button>
+                </div>
+                <div class="ch-set-area">
+                    <span class="ch-set-label">⏲️</span>
+                    <input type="number" class="ch-set-input" value="300" min="1" max="36000">
+                    <button class="ch-set-btn">应用</button>
+                </div>
+            </div>
+            <div class="ch-display-wrap">
+                <div class="ch-time-display paused">00:00:00</div>
+            </div>
+            <div class="ch-controls">
+                <button class="ch-ctrl-btn primary">▶ 开始</button>
+                <button class="ch-ctrl-btn secondary">⏹ 停止</button>
+                <button class="ch-ctrl-btn reset-btn">↺ 重置</button>
+            </div>
+            <div class="ch-status">● 等待开始</div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            "use strict";
+
+            // ---------- 每个通道的状态 ----------
+            class ChannelState {
+                constructor(channelEl) {
+                    this.el = channelEl;
+                    this.mode = 'stopwatch';
+                    this.isRunning = false;
+                    this.interval = null;
+                    this.seconds = 0;
+                    this.initialSeconds = 60;
+
+                    this.displayWrap = channelEl.querySelector('.ch-display-wrap');
+                    this.timeDisplay = channelEl.querySelector('.ch-time-display');
+                    this.startPauseBtn = channelEl.querySelector('.ch-ctrl-btn.primary');
+                    this.stopBtn = channelEl.querySelector('.ch-ctrl-btn.secondary');
+                    this.resetBtn = channelEl.querySelector('.ch-ctrl-btn.reset-btn');
+                    this.statusEl = channelEl.querySelector('.ch-status');
+                    this.modeBtns = channelEl.querySelectorAll('.ch-mode-btn');
+                    this.setInput = channelEl.querySelector('.ch-set-input');
+                    this.setBtn = channelEl.querySelector('.ch-set-btn');
+
+                    // 读取初始模式：哪个按钮有 active 类
+                    this.modeBtns.forEach(btn => {
+                        if (btn.classList.contains('active')) {
+                            this.mode = btn.dataset.mode;
+                        }
+                    });
+
+                    this.setInput.dataset.default = this.setInput.value;
+                    this.initialSeconds = parseInt(this.setInput.value, 10) || 60;
+                    this.seconds = this.mode === 'stopwatch' ? 0 : this.initialSeconds;
+
+                    this._bindEvents();
+                    this.updateDisplay();
+                    this.updateUI();
+                }
+
+                _bindEvents() {
+                    this.modeBtns.forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const mode = btn.dataset.mode;
+                            if (mode === this.mode) return;
+                            this.stopTimer();
+                            this.modeBtns.forEach(b => b.classList.remove('active'));
+                            btn.classList.add('active');
+                            this.mode = mode;
+                            if (this.mode === 'stopwatch') {
+                                this.seconds = 0;
+                            } else {
+                                let val = parseInt(this.setInput.value, 10);
+                                if (isNaN(val) || val < 1) val = 60;
+                                this.initialSeconds = val;
+                                this.seconds = val;
+                            }
+                            this.updateDisplay();
+                            this.updateUI();
+                            this.setStatus('● 已切换');
+                            this.timeDisplay.className = 'ch-time-display paused';
+                        });
+                    });
+
+                    this.setBtn.addEventListener('click', () => {
+                        this.applySetting();
+                    });
+                    this.setInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            this.applySetting();
+                        }
+                    });
+                    this.setInput.addEventListener('blur', () => {
+                        let val = parseInt(this.setInput.value, 10);
+                        if (isNaN(val) || val < 1) this.setInput.value = 60;
+                        if (val > 36000) this.setInput.value = 36000;
+                    });
+
+                    this.displayWrap.addEventListener('click', () => {
+                        this.toggleStartPause();
+                    });
+
+                    this.startPauseBtn.addEventListener('click', () => {
+                        this.toggleStartPause();
+                    });
+
+                    this.stopBtn.addEventListener('click', () => {
+                        if (this.isRunning) {
+                            this.stopTimer();
+                            this.setStatus('⏹ 已停止');
+                        } else {
+                            if (this.interval) {
+                                clearInterval(this.interval);
+                                this.interval = null;
+                            }
+                            this.setStatus('⏹ 已停止');
+                        }
+                        this.updateUI();
+                    });
+
+                    this.resetBtn.addEventListener('click', () => {
+                        this.resetTimer();
+                    });
+                }
+
+                applySetting() {
+                    let val = parseInt(this.setInput.value, 10);
+                    if (isNaN(val) || val < 1) {
+                        this.setInput.value = 60;
+                        val = 60;
+                    }
+                    if (val > 36000) {
+                        this.setInput.value = 36000;
+                        val = 36000;
+                    }
+                    if (this.isRunning) this.stopTimer();
+                    this.initialSeconds = val;
+                    if (this.mode === 'countdown') {
+                        this.seconds = val;
+                    } else {
+                        this.seconds = 0;
+                    }
+                    this.updateDisplay();
+                    this.updateUI();
+                    this.setStatus(`⏲️ 设定 ${val} 秒`);
+                    this.timeDisplay.className = 'ch-time-display paused';
+                }
+
+                toggleStartPause() {
+                    if (this.isRunning) {
+                        this.stopTimer();
+                        this.updateUI();
+                        return;
+                    }
+                    if (this.mode === 'countdown' && this.seconds <= 0) {
+                        this.seconds = Math.max(1, this.initialSeconds);
+                        this.updateDisplay();
+                    }
+                    this.startTimer();
+                    this.updateUI();
+                }
+
+                startTimer() {
+                    if (this.interval) {
+                        clearInterval(this.interval);
+                        this.interval = null;
+                    }
+                    this.isRunning = true;
+                    this.startPauseBtn.textContent = '⏸ 暂停';
+                    this.setStatus('▶ 运行中');
+                    this.timeDisplay.className = 'ch-time-display running';
+
+                    this.interval = setInterval(() => {
+                        if (this.mode === 'stopwatch') {
+                            this.seconds++;
+                            this.updateDisplay();
+                        } else {
+                            if (this.seconds > 0) {
+                                this.seconds--;
+                                this.updateDisplay();
+                                if (this.seconds === 0) {
+                                    this.stopTimer();
+                                    this.startPauseBtn.textContent = '▶ 开始';
+                                    this.setStatus('⏰ 结束！');
+                                    this.timeDisplay.className = 'ch-time-display danger';
+                                    this.updateUI();
+                                }
+                            } else {
+                                this.stopTimer();
+                                this.setStatus('⏹ 已停止');
+                                this.updateUI();
+                            }
+                        }
+                    }, 1000);
+                }
+
+                stopTimer() {
+                    if (this.interval) {
+                        clearInterval(this.interval);
+                        this.interval = null;
+                    }
+                    this.isRunning = false;
+                    this.startPauseBtn.textContent = '▶ 开始';
+                    if (this.mode === 'countdown' && this.seconds <= 0) {
+                        this.setStatus('⏹ 倒计时结束');
+                        this.timeDisplay.className = 'ch-time-display danger';
+                    } else {
+                        this.setStatus('● 已暂停');
+                        this.timeDisplay.className = 'ch-time-display paused';
+                    }
+                    this.updateUI();
+                }
+
+                resetTimer() {
+                    this.stopTimer();
+                    if (this.mode === 'stopwatch') {
+                        this.seconds = 0;
+                        this.setStatus('↺ 计时重置');
+                    } else {
+                        this.seconds = Math.max(1, this.initialSeconds);
+                        this.setStatus('↺ 倒计时重置');
+                    }
+                    this.updateDisplay();
+                    this.updateUI();
+                    this.timeDisplay.className = 'ch-time-display paused';
+                }
+
+                updateDisplay() {
+                    let displaySeconds = this.mode === 'stopwatch' ? this.seconds : Math.max(0, this.seconds);
+                    this.timeDisplay.textContent = this.formatTime(displaySeconds);
+                }
+
+                formatTime(seconds) {
+                    if (seconds < 0) seconds = 0;
+                    const hrs = Math.floor(seconds / 3600);
+                    const mins = Math.floor((seconds % 3600) / 60);
+                    const secs = Math.floor(seconds % 60);
+                    return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                }
+
+                updateUI() {
+                    this.startPauseBtn.textContent = this.isRunning ? '⏸ 暂停' : '▶ 开始';
+                }
+
+                setStatus(text) {
+                    this.statusEl.textContent = text;
+                }
+
+                destroy() {
+                    if (this.interval) {
+                        clearInterval(this.interval);
+                        this.interval = null;
+                    }
+                }
+            }
+
+            // ---------- 初始化 ----------
+            const channels = [];
+            const channelElements = document.querySelectorAll('.channel');
+            channelElements.forEach((el, index) => {
+                const state = new ChannelState(el);
+                channels.push(state);
+                // 设置默认值: 通道1=60, 通道2=180, 通道3=300
+                const defaultValues = [60, 180, 300];
+                if (index < defaultValues.length) {
+                    const input = el.querySelector('.ch-set-input');
+                    input.value = defaultValues[index];
+                    state.initialSeconds = defaultValues[index];
+                    // 根据当前模式设置秒数
+                    if (state.mode === 'countdown') {
+                        state.seconds = defaultValues[index];
+                    } else {
+                        state.seconds = 0;
+                    }
+                    state.updateDisplay();
+                }
+            });
+
+            window.addEventListener('beforeunload', () => {
+                channels.forEach(ch => ch.destroy());
+            });
+
+        })();
+    </script>
+</body>
+</html>
