@@ -1,0 +1,208 @@
+/**
+ * ============================================================
+ * Pinia Store 状态变化对比调试工具
+ * 功能：对比 mouse:sensor Store 在操作前后的状态变化
+ * 使用场景：页面开关/按钮操作时，定位哪个 Pinia 状态字段发生了变化
+ * ============================================================
+ */
+
+/**
+ * 第一步：保存操作前的状态快照
+ * 在操作页面开关之前，先执行此函数保存当前状态
+ */
+function saveStoreSnapshot() {
+  try {
+    // 获取目标 Store
+    const store = window.__PINIA_STORES__?.['mouse:sensor']
+    if (!store) {
+      console.warn('❌ 未找到 mouse:sensor Store，请确认 Store 已初始化')
+      return false
+    }
+
+    // 深拷贝保存当前状态（作为快照）
+    window.__BEFORE_STATE = JSON.parse(JSON.stringify(store.$state))
+    console.log('📸 快照已保存，请去操作页面开关/按钮')
+    console.log('   当前状态:', window.__BEFORE_STATE)
+    return true
+  } catch (error) {
+    console.error('❌ 保存快照失败:', error.message)
+    console.warn('提示: 如果 Store 中包含循环引用，请使用 safeStringify 版本')
+    return false
+  }
+}
+
+/**
+ * 第二步：对比操作后的状态变化
+ * 在操作页面开关之后，执行此函数查看哪些字段发生了变化
+ */
+function compareStoreChanges() {
+  // 检查是否有保存的快照
+  const before = window.__BEFORE_STATE
+  if (!before) {
+    console.warn('⚠️ 未找到快照，请先执行 saveStoreSnapshot()')
+    return
+  }
+
+  // 获取当前状态
+  const store = window.__PINIA_STORES__?.['mouse:sensor']
+  if (!store) {
+    console.warn('❌ 未找到 mouse:sensor Store')
+    return
+  }
+  const after = store.$state
+
+  console.log('🔍 ===== 开始对比变化 =====')
+
+  // 执行深度对比
+  const changes = deepDiff(before, after)
+
+  if (changes.length === 0) {
+    console.log('✅ 没有发现任何变化')
+  } else {
+    console.log(`📊 共发现 ${changes.length} 处变化:`)
+    changes.forEach((change, index) => {
+      console.log(`  ${index + 1}. 🔄 ${change.path}`)
+      console.log(`     旧值: ${JSON.stringify(change.oldValue)}`)
+      console.log(`     新值: ${JSON.stringify(change.newValue)}`)
+    })
+  }
+
+  console.log('🔍 ===== 对比结束 =====')
+  return changes
+}
+
+/**
+ * 深度对比两个对象，返回所有变化的路径和值
+ * @param {any} obj1 - 旧对象
+ * @param {any} obj2 - 新对象
+ * @param {string} path - 当前路径（用于递归）
+ * @param {Array} result - 收集变化结果
+ * @returns {Array} 变化列表 [{ path, oldValue, newValue }]
+ */
+function deepDiff(obj1, obj2, path = '', result = []) {
+  // 如果是同一个引用，直接返回
+  if (obj1 === obj2) return result
+
+  // 处理基本类型或 null
+  if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) {
+    if (obj1 !== obj2) {
+      result.push({
+        path: path || '(根)',
+        oldValue: obj1,
+        newValue: obj2
+      })
+    }
+    return result
+  }
+
+  // 获取所有键的并集
+  const allKeys = new Set([
+    ...Object.keys(obj1 || {}),
+    ...Object.keys(obj2 || {})
+  ])
+
+  allKeys.forEach(key => {
+    // 跳过 Vue 内部属性（以 _ 或 $ 开头的）
+    if (key.startsWith('_') || key.startsWith('$')) return
+
+    // 递归对比子属性
+    const newPath = path ? `${path}.${key}` : key
+    deepDiff(obj1?.[key], obj2?.[key], newPath, result)
+  })
+
+  return result
+}
+
+/**
+ * 工具函数：安全序列化（处理循环引用）
+ * 当 JSON.stringify 报错时使用
+ */
+function safeStringify(obj, indent = 2) {
+  const seen = new WeakSet()
+  return JSON.stringify(obj, (key, value) => {
+    // 跳过 Vue 内部属性
+    if (key.startsWith('_') || key.startsWith('$')) return undefined
+    // 处理循环引用
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) return '[Circular]'
+      seen.add(value)
+    }
+    // 处理函数
+    if (typeof value === 'function') return '[Function]'
+    return value
+  }, indent)
+}
+
+/**
+ * 增强版保存快照（处理循环引用）
+ * 如果普通版报错，使用此版本
+ */
+function saveStoreSnapshotSafe() {
+  try {
+    const store = window.__PINIA_STORES__?.['mouse:sensor']
+    if (!store) {
+      console.warn('❌ 未找到 mouse:sensor Store')
+      return false
+    }
+
+    // 使用安全序列化后解析回对象
+    const safeStr = safeStringify(store.$state)
+    window.__BEFORE_STATE = JSON.parse(safeStr)
+    console.log('📸 快照已保存（安全模式）')
+    return true
+  } catch (error) {
+    console.error('❌ 保存快照失败:', error.message)
+    return false
+  }
+}
+
+/**
+ * 快速查看当前状态
+ */
+function showCurrentState() {
+  const store = window.__PINIA_STORES__?.['mouse:sensor']
+  if (!store) {
+    console.warn('❌ 未找到 mouse:sensor Store')
+    return
+  }
+  console.log('📊 当前状态:', store.$state)
+  // 如果有 sensorState，单独显示
+  if (store.$state?.sensorState) {
+    console.log('📊 sensorState:', store.$state.sensorState)
+  }
+}
+
+/**
+ * 导出调试工具到全局（方便控制台使用）
+ */
+window.__piniaDebug = {
+  saveSnapshot: saveStoreSnapshot,
+  saveSnapshotSafe: saveStoreSnapshotSafe,
+  compare: compareStoreChanges,
+  showState: showCurrentState,
+  safeStringify: safeStringify,
+  deepDiff: deepDiff
+}
+
+// ============================================================
+// 使用说明（控制台操作步骤）：
+// ============================================================
+// 1. 保存快照：  window.__piniaDebug.saveSnapshot()
+//    或（如果报错）：window.__piniaDebug.saveSnapshotSafe()
+//
+// 2. 操作页面开关/按钮
+//
+// 3. 对比变化：  window.__piniaDebug.compare()
+//
+// 4. 查看状态：  window.__piniaDebug.showState()
+// ============================================================
+
+console.log('✅ Pinia 调试工具已加载！')
+console.log('📖 使用步骤:')
+console.log('  1. saveSnapshot()  → 保存快照')
+console.log('  2. 操作页面开关')
+console.log('  3. compare()       → 对比变化')
+console.log('')
+console.log('💡 快捷命令:')
+console.log('  window.__piniaDebug.saveSnapshot()')
+console.log('  window.__piniaDebug.compare()')
